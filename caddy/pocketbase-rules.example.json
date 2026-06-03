@@ -1,0 +1,13 @@
+{
+  "collections": [
+    {
+      "name": "expenses",
+      "listRule": "@request.auth.id != \"\"",
+      "viewRule": "@request.auth.id != \"\"",
+      "createRule": "@request.auth.id != \"\"",
+      "updateRule": "@request.auth.id != \"\"",
+      "deleteRule": "@request.auth.id != \"\""
+    }
+  ],
+  "notes": "Import via PocketBase Admin → Collections, or paste rules per collection. Create an Auth collection 'users' for app login."
+}
