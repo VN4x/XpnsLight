@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">XpnsLight</string>
+    <string name="title_activity_main">XpnsLight</string>
+    <string name="package_name">com.xpnslight.app</string>
+    <string name="custom_url_scheme">com.xpnslight.app</string>
+</resources>
