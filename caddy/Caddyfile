@@ -1,0 +1,89 @@
+# XpnsLight — hardened PocketBase reverse proxy (Tailscale-only)
+#
+# Copy env.example → .env. PocketBase: serve --http=127.0.0.1:8090
+
+{
+	admin off
+	servers {
+		trusted_proxies static private_ranges 100.64.0.0/10
+	}
+}
+
+(tailscale_only) {
+	@denied not remote_ip 100.64.0.0/10 127.0.0.0/8 ::1/128 fd7a:115c:a1e0::/48
+	respond @denied "Forbidden" 403
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+}
+
+(api_rate_limit) {
+	rate_limit {
+		zone api_zone {
+			key {remote_host}
+			events 120
+			window 1m
+		}
+	}
+}
+
+(block_bad_methods) {
+	@bad_method not method GET POST PATCH PUT DELETE OPTIONS
+	respond @bad_method 405
+}
+
+{$XPNS_LISTEN:0.0.0.0}:{$XPNS_HTTPS_PORT:18312} {
+	tls {$XPNS_TLS_MODE:internal}
+
+	import tailscale_only
+	import security_headers
+	import block_bad_methods
+
+	encode gzip zstd
+
+	request_body {
+		max_size 2MB
+	}
+
+	handle /api/* {
+		import api_rate_limit
+		reverse_proxy {$XPNS_POCKETBASE_UPSTREAM:127.0.0.1:8090} {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+			transport http {
+				versions 1.1
+			}
+		}
+	}
+
+	handle /_/* {
+		# Admin UI only via local SSH tunnel (127.0.0.1), not from the tailnet app port
+		@blocked_admin {
+			path /_/admin /_/admin/*
+			not remote_ip 127.0.0.0/8 ::1/128
+		}
+		respond @blocked_admin "Not Found" 404
+
+		reverse_proxy {$XPNS_POCKETBASE_UPSTREAM:127.0.0.1:8090} {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				versions 1.1
+			}
+		}
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}

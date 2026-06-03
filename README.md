@@ -25,14 +25,27 @@ A lightweight personal **Android expense tracker** built with **Svelte 5**, **Ca
 - Reference tags cached in `localStorage` for datalist suggestions
 - Validates then calls `pb.collection('expenses').create()`
 
-## PocketBase setup
+## Security (Caddy + auth)
 
-Point the app at your Tailscale PocketBase host (default in code: `http://100.x.x.x:18312`). Override with `.env`:
+PocketBase must **not** be exposed directly on the tailnet. Use the hardened Caddy stack in [`caddy/`](caddy/README.md):
+
+- TLS on port `18312` (default)
+- Tailscale-only IP allowlist
+- Rate limiting, security headers, admin UI loopback-only
+- PocketBase bound to `127.0.0.1:8090`
+
+```bash
+cd caddy && cp env.example .env && docker compose up -d --build
+```
+
+The app requires **HTTPS** in production and **PocketBase user login** (`users` auth collection). Apply API rules from `caddy/pocketbase-rules.example.json` so only authenticated users can read/write `expenses`.
 
 ```bash
 cp .env.example .env
-# edit VITE_POCKETBASE_URL to your Tailscale IP
+# VITE_POCKETBASE_URL=https://100.x.x.x:18312
 ```
+
+## PocketBase setup
 
 Create a collection named **`expenses`** with these fields:
 
@@ -47,7 +60,7 @@ Create a collection named **`expenses`** with these fields:
 | `vat_amount` | Number | Required |
 | `vat_rate` | Number | 0, 5, or 20 |
 
-Enable **list** and **create** rules appropriate for your auth model (e.g. open for a private Tailscale-only instance).
+Set collection rules to **`@request.auth.id != ""`** for list/create/update/delete (see `caddy/pocketbase-rules.example.json`). Create app users in the **`users`** auth collection.
 
 ## Development
 
@@ -71,7 +84,7 @@ Or use the shortcut:
 npm run cap:android
 ```
 
-Build and run from Android Studio. Ensure the device can reach your PocketBase URL over Tailscale.
+Build and run from Android Studio. The device must reach the **Caddy HTTPS** URL over Tailscale. For `tls internal`, install the Caddy root CA on the device or use Tailscale HTTPS certs (see `caddy/README.md`). Cleartext HTTP is disabled in the Android manifest.
 
 ## Scripts
 
@@ -86,11 +99,16 @@ Build and run from Android Studio. Ensure the device can reach your PocketBase U
 ## Project structure
 
 ```
+caddy/
+  Caddyfile                 # TLS proxy, tailnet ACL, rate limits
+  docker-compose.yml        # PocketBase (loopback) + Caddy
+  pocketbase-rules.example.json
 src/
   App.svelte                 # View switch: dashboard | entry
   app.css                    # Global theme
   lib/
-    pocketbase.ts            # PB client + CRUD
+    pocketbase.ts            # PB client + CRUD (HTTPS enforced in prod)
+    auth.ts                    # Login / logout
     vat.ts                     # VAT math
     storage.ts                 # Tag cache
     csv.ts                     # CSV export
@@ -98,4 +116,5 @@ src/
     components/
       Dashboard.svelte
       EntryForm.svelte
+      LoginForm.svelte
 ```

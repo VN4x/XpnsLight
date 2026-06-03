@@ -9,9 +9,10 @@
     referenceTags: string[];
     onAdd: () => void;
     onRefresh: () => void;
+    onLogout: () => void;
   }
 
-  let { expenses, referenceTags, onAdd, onRefresh }: Props = $props();
+  let { expenses, referenceTags, onAdd, onRefresh, onLogout }: Props = $props();
 
   let startDate = $state('');
   let endDate = $state('');
@@ -80,7 +81,10 @@
 
 <section class="dashboard">
   <header class="hero panel">
-    <h1 class="title-red page-title">Expense Monitor</h1>
+    <div class="hero-top">
+      <h1 class="title-red page-title">Expense Monitor</h1>
+      <button type="button" class="sign-out" onclick={onLogout}>Sign Out</button>
+    </div>
     <div class="metrics">
       <div class="metric panel panel--dashed">
         <span class="metric__label">Total Net (ZeroVAT)</span>
@@ -165,9 +169,28 @@
     margin: 0 auto;
   }
 
+  .hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 18px 0;
+  }
+
   .page-title {
     font-size: 15px;
-    padding: 14px 18px 0;
+    margin: 0;
+  }
+
+  .sign-out {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink-muted);
   }
 
   .section-title {

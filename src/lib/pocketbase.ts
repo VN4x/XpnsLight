@@ -1,15 +1,29 @@
 import PocketBase from 'pocketbase';
 import type { Expense, ExpenseInput } from './types';
 
-const DEFAULT_URL = 'http://100.x.x.x:18312';
+const DEFAULT_URL = 'https://100.x.x.x:18312';
 
-export const pb = new PocketBase(
-  import.meta.env.VITE_POCKETBASE_URL ?? DEFAULT_URL,
-);
+function resolveBaseUrl(): string {
+  const url = (import.meta.env.VITE_POCKETBASE_URL ?? DEFAULT_URL).replace(/\/$/, '');
+  const allowHttp = import.meta.env.VITE_ALLOW_HTTP === 'true';
+
+  if (import.meta.env.PROD && url.startsWith('http://') && !allowHttp) {
+    throw new Error(
+      'VITE_POCKETBASE_URL must use HTTPS in production. Set VITE_ALLOW_HTTP=true only for local dev.',
+    );
+  }
+
+  return url;
+}
+
+export const pb = new PocketBase(resolveBaseUrl());
 
 pb.autoCancellation(false);
 
 export async function fetchExpenses(): Promise<Expense[]> {
+  if (!pb.authStore.isValid) {
+    throw new Error('Not authenticated.');
+  }
   const records = await pb.collection('expenses').getFullList({
     sort: '-date',
   });
@@ -17,6 +31,9 @@ export async function fetchExpenses(): Promise<Expense[]> {
 }
 
 export async function createExpense(data: ExpenseInput): Promise<Expense> {
+  if (!pb.authStore.isValid) {
+    throw new Error('Not authenticated.');
+  }
   const record = await pb.collection('expenses').create(data);
   return mapRecord(record);
 }
